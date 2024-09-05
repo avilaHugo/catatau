@@ -1,0 +1,6 @@
+#+TITLE: Catatau
+* TOC :toc:
+- [[#references][References]]
+
+* References
+- [[https://mathieularose.com/function-composition-in-python][compose function]]
