@@ -1,6 +1,65 @@
 #+TITLE: Catatau
-* TOC :toc:
-- [[#references][References]]
+#+AUTHOR: Hugo L. Ávila
+#+PROPERTY: header-args :eval never-export :results drawer :noweb no :tangle no
 
-* References
-- [[https://mathieularose.com/function-composition-in-python][compose function]]
+* TOC :toc:
+- [[#idea][Idea]]
+- [[#awk-overview][AWK overview]]
+  - [[#test-data][Test data]]
+  - [[#overview][Overview]]
+
+* Idea
+Create a more ergonomic alternative to AWK
+
+* AWK overview
+:PROPERTIES:
+:header-args: :var test_data="./tests/data/sample.csv" :results code
+:END:
+
+AWK is a very useful tool for quickly parsing, querying, and formatting tabular data in the command line.
+
+** Test data
+This is a fragment of the [[https://github.com/gunnarmorling/1brc][One Billion Row Challenge]] test data. If all goes well, I want to be able to complete the challenge from the command line.
+
+#+BEGIN_SRC shell
+  head "${test_data}"
+#+END_SRC
+
+** Overview
+
+*** Script
+A common AWK program follows this simple structure:
+
+#+BEGIN_EXAMPLE 
+  CONDITION { ACTION } ...
+#+END_EXAMPLE
+
+We have a condition, which is an expression that essentially works as a predicate. AWK uses this to decide whether an action will be applied to a line.
+
+*** Slicing
+Slicing is the process of taking tabular data and, using a delimiter and line breaks, separating a table to extract n rows and/or columns.
+#+NAME: print-first-col
+#+BEGIN_SRC shell
+  # take first col.
+  awk -F ';' '{print $1}' "${test_data}"
+#+END_SRC
+
+*** Filtering
+#+NAME: print-first-n-rows
+#+BEGIN_SRC shell
+  # take first 2 rows
+  awk -F ';' 'NR <= 2' "${test_data}"
+  
+  # or
+  echo
+  awk -F ';' 'NR == 1 {print; next} {print; exit}' "${test_data}"
+#+END_SRC
+
+*** Formatting
+#+NAME: no-ranges
+#+BEGIN_SRC shell
+  awk -F ';' -v OFS=';' '{print $1,$2}' "${test_data}"
+#+END_SRC
+
+
+
