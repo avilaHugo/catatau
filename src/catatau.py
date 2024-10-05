@@ -1,56 +1,43 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 
-from __future__ import annotations
+import sys
+from collections.abc import Generator
+from functools import singledispatch
+from io import TextIOWrapper
 
-import argparse
-import collections.abc as c
-import typing as t
-from functools import reduce
-
-
-class Series(c.Mapping):
-    def __init__(self, data: c.Sequence, name: None) -> None:
-        self.data = data
-        self.name = name
+STDIN_DEFAULT_NAME = "-"
 
 
-class DataFrame(c.Mapping):
-    def __init__(self, data: dict[str | int, Series]) -> None:
-        self.data = data
+def file_to_text_wrapper(file_name: str) -> TextIOWrapper:
+    return open(file_name, mode="r", encoding="utf-8")
 
 
-def iter_file(file_name: str) -> c.Iterator[str]:
-    with open(file_name, mode="r") as f:
+def text_wrapper_iter_lines(
+    text_io_wrapper: TextIOWrapper,
+) -> Generator[str, None, None]:
+    with text_io_wrapper as f:
         yield from map(lambda line: line.rstrip("\n"), f)
 
 
-def compose(*functions: c.Callable) -> c.Callable:
-    return reduce(
-        lambda inner, outter: lambda value: outter(inner(value)),
-        functions,
-        lambda value: value,
+@singledispatch
+def iter_file(file_name: str) -> Generator[str, None, None]:
+    yield from text_wrapper_iter_lines(file_to_text_wrapper(file_name))
+
+
+@iter_file.register
+def _(file_name: TextIOWrapper) -> Generator[str, None, None]:
+    yield from text_wrapper_iter_lines(file_name)
+
+
+def main(file_names: list[str]) -> None:
+    new_file_names = map(
+        lambda file_name: file_name if file_name != STDIN_DEFAULT_NAME else sys.stdin,
+        file_names,
     )
-
-
-# def read_csv(file_name: str, separator=",") -> DataFrame:
-#     return DataFrame(dict(zip())
-
-
-def main(file_names: c.Iterable[str]) -> None:
-    for file_name in file_names:
-        print(*map(lambda line: line.split(";"), iter_file(file_name)), sep="\n")
-        compose(
-            iter_file,
-        )(file_name)
+    for file_curr in map(iter_file, new_file_names):
+        for line in file_curr:
+            print(line)
 
 
 if __name__ == "__main__":
-
-    args = argparse.ArgumentParser()
-    args.add_argument(
-        "file_names",
-        nargs="+",
-        action="extend",
-    )
-    main(**vars(args.parse_args()))
+    main(sys.argv[1:])

@@ -1,17 +1,19 @@
 #+TITLE: Catatau
 #+AUTHOR: Hugo L. Ávila
 #+PROPERTY: header-args :eval never-export :results drawer :noweb no :tangle no
+#+STARTUP: overview
 
 * TOC :toc:
 - [[#idea][Idea]]
-- [[#awk-overview][AWK overview]]
+- [[#awk][AWK]]
   - [[#test-data][Test data]]
   - [[#overview][Overview]]
+  - [[#things-i-dislike-about-awk][Things I Dislike About AWK]]
 
 * Idea
-Create a more ergonomic alternative to AWK
+Create a more ergonomic alternative to AWK.
 
-* AWK overview
+* AWK 
 :PROPERTIES:
 :header-args: :var test_data="./tests/data/sample.csv" :results code
 :END:
@@ -24,6 +26,20 @@ This is a fragment of the [[https://github.com/gunnarmorling/1brc][One Billion R
 #+BEGIN_SRC shell
   head "${test_data}"
 #+END_SRC
+
+#+RESULTS:
+#+begin_src shell
+Hamburg;12.0
+Bulawayo;8.9
+Palembang;38.8
+St. John’s;15.2
+Cracow;12.6
+Bridgetown;26.9
+Istanbul;6.2
+Roseau;34.4
+Conakry;31.2
+Istanbul;23.0
+#+end_src
 
 ** Overview
 
@@ -44,6 +60,20 @@ Slicing is the process of taking tabular data and, using a delimiter and line br
   awk -F ';' '{print $1}' "${test_data}"
 #+END_SRC
 
+#+RESULTS: print-first-col
+#+begin_src shell
+Hamburg
+Bulawayo
+Palembang
+St. John’s
+Cracow
+Bridgetown
+Istanbul
+Roseau
+Conakry
+Istanbul
+#+end_src
+
 *** Filtering
 #+NAME: print-first-n-rows
 #+BEGIN_SRC shell
@@ -51,15 +81,76 @@ Slicing is the process of taking tabular data and, using a delimiter and line br
   awk -F ';' 'NR <= 2' "${test_data}"
   
   # or
-  echo
+  # echo
   awk -F ';' 'NR == 1 {print; next} {print; exit}' "${test_data}"
 #+END_SRC
+
+#+RESULTS: print-first-n-rows
+#+begin_src shell
+Hamburg;12.0
+Bulawayo;8.9
+Hamburg;12.0
+Bulawayo;8.9
+#+end_src
 
 *** Formatting
 #+NAME: no-ranges
 #+BEGIN_SRC shell
-  awk -F ';' -v OFS=';' '{print $1,$2}' "${test_data}"
+  awk -F ';' -v OFS=';' '{print $1,$2,$1 "-SUFFIX"}' "${test_data}"
 #+END_SRC
 
+#+RESULTS: no-ranges
+#+begin_src shell
+Hamburg;12.0;Hamburg-SUFFIX
+Bulawayo;8.9;Bulawayo-SUFFIX
+Palembang;38.8;Palembang-SUFFIX
+St. John’s;15.2;St. John’s-SUFFIX
+Cracow;12.6;Cracow-SUFFIX
+Bridgetown;26.9;Bridgetown-SUFFIX
+Istanbul;6.2;Istanbul-SUFFIX
+Roseau;34.4;Roseau-SUFFIX
+Conakry;31.2;Conakry-SUFFIX
+Istanbul;23.0;Istanbul-SUFFIX
+#+end_src
 
 
+** Things I Dislike About AWK
+
+*** Lack of Convenient Slicing Syntax
+As far as I know, aside from the slice function, AWK does not have a convenient way to slice columns like the cut command does.
+
+#+BEGIN_SRC shell
+  # awk -F ';' '{print $1, $2, $1, $2, $1, $2, $1, $2, $1, $2 }' "${test_data}" > temp.txt
+  cut -d ' ' -f 2-6 temp.txt
+#+END_SRC
+
+#+RESULTS:
+#+begin_src shell
+12.0 Hamburg 12.0 Hamburg 12.0
+8.9 Bulawayo 8.9 Bulawayo 8.9
+38.8 Palembang 38.8 Palembang 38.8
+John’s 15.2 St. John’s 15.2
+12.6 Cracow 12.6 Cracow 12.6
+26.9 Bridgetown 26.9 Bridgetown 26.9
+6.2 Istanbul 6.2 Istanbul 6.2
+34.4 Roseau 34.4 Roseau 34.4
+31.2 Conakry 31.2 Conakry 31.2
+23.0 Istanbul 23.0 Istanbul 23.0
+#+end_src
+
+In this example, we have to manually repeat column references to "slice" or select multiple columns, which can be tedious and error-prone, especially with a large number of columns.
+
+*** No Support for Named Columns
+
+By default, AWK lets you reference columns using an index. For example, ='{print $1}'= would print the first column. This is fine, but when we have many columns or don't know the index of a given column beforehand, this can become troublesome. I also find it more descriptive to reference columns by name rather than by index.
+
+#+BEGIN_SRC shell
+  # Using index
+  # cat TABLE_WITH_A_LOT_COLS.csv | awk -F',' '{print $21, $11, $36}'
+
+  # Using col name
+  # cat TABLE_WITH_A_LOT_COLS.csv | awk -F',' '{print c["car"], c["model"], c["price"]}'
+#+END_SRC
+
+*** No Easy Way to Perform Aggregations
+AWK lacks built-in, straightforward methods for common aggregations like summing, averaging, or grouping data by specific columns, which requires more manual effort.
