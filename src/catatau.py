@@ -1,41 +1,75 @@
 #!/usr/bin/env python3
 
+import gzip
 import sys
 from collections.abc import Generator
-from functools import singledispatch
-from io import TextIOWrapper
+from typing import Protocol
 
+# Constants
 STDIN_DEFAULT_NAME = "-"
+DEFAULT_ENCODING = "utf-8"
+
+# Types
+StringGenerator = Generator[str, None, None]
 
 
-def file_to_text_wrapper(file_name: str) -> TextIOWrapper:
-    return open(file_name, mode="r", encoding="utf-8")
+class FlatTextFIle:
+    def __init__(self, handle: str):
+        self.handle = handle
+
+    def iter_file(self) -> StringGenerator:
+        with open(self.handle, mode="r", encoding=DEFAULT_ENCODING) as f:
+            yield from map(lambda line: line.rstrip("\n"), f)
 
 
-def text_wrapper_iter_lines(
-    text_io_wrapper: TextIOWrapper,
-) -> Generator[str, None, None]:
-    with text_io_wrapper as f:
-        yield from map(lambda line: line.rstrip("\n"), f)
+class GzipTextFIle(FlatTextFIle):
+    def iter_file(self) -> StringGenerator:
+        with gzip.open(self.handle, mode="rt", encoding=DEFAULT_ENCODING) as f:
+            yield from map(lambda line: line.rstrip("\n"), f)
 
 
-@singledispatch
-def iter_file(file_name: str) -> Generator[str, None, None]:
-    yield from text_wrapper_iter_lines(file_to_text_wrapper(file_name))
+class StdinTextFile(FlatTextFIle):
+    _was_readed: bool = False
+
+    def __init__(self, handle: str) -> None:
+        if self.__class__._was_readed:
+            raise RuntimeError(
+                f"Cannot read from stdin more than once: class {self.__class__.__name__} was instanciated more than one time."
+            )
+
+        self.__class__._was_readed = True
+        super().__init__(handle)
+
+    def iter_file(self) -> StringGenerator:
+        with sys.stdin as f:
+            yield from map(lambda line: line.rstrip("\n"), f)
 
 
-@iter_file.register
-def _(file_name: TextIOWrapper) -> Generator[str, None, None]:
-    yield from text_wrapper_iter_lines(file_name)
+class SupportsIterFile(Protocol):
+    def iter_file(self) -> StringGenerator:
+        ...
+
+
+def pick_file_parser(handle: str) -> SupportsIterFile:
+    def is_gzip(handle: str) -> bool:
+        with open(handle, mode="rb") as f:
+            return f.read(2) == b"\x1f\x8b"
+
+    def is_stdin(handle: str) -> bool:
+        return handle == STDIN_DEFAULT_NAME
+
+    if is_stdin(handle):
+        return StdinTextFile(handle)
+
+    if is_gzip(handle):
+        return GzipTextFIle(handle)
+
+    return FlatTextFIle(handle)
 
 
 def main(file_names: list[str]) -> None:
-    new_file_names = map(
-        lambda file_name: file_name if file_name != STDIN_DEFAULT_NAME else sys.stdin,
-        file_names,
-    )
-    for file_curr in map(iter_file, new_file_names):
-        for line in file_curr:
+    for file_name in file_names:
+        for line in pick_file_parser(file_name).iter_file():
             print(line)
 
 
